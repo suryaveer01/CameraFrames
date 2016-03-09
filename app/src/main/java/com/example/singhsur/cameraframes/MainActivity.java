@@ -118,7 +118,7 @@ public class MainActivity extends Activity  {
         Size previewSize = mCamera.getParameters().getPreviewSize();
         int dataBufferSize = (int) (previewSize.height * previewSize.width *
                 (ImageFormat.getBitsPerPixel(mCamera.getParameters().getPreviewFormat()) / 8.0));
-        for (int i = 0; i < 20; i++)
+        for (int i = 0; i <=20; i++)
             mCamera.addCallbackBuffer(new byte[dataBufferSize]);
         //mCamera.addCallbackBuffer(new byte[dataBufferSize]);
         //mCamera.addCallbackBuffer(new byte[dataBufferSize]);
@@ -166,6 +166,8 @@ public class MainActivity extends Activity  {
     }*/
             @Override
             public synchronized void onPreviewFrame(byte[] data, Camera camera) {
+                Log.v("CameraTest","Time Gap = "+(System.currentTimeMillis()-timestamp));
+                timestamp=System.currentTimeMillis();
                 try {
                     Camera.Parameters parameters = camera.getParameters();
                     Size size = parameters.getPreviewSize();
