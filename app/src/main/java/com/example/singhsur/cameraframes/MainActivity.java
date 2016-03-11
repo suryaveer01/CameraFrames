@@ -1,6 +1,35 @@
 package com.example.singhsur.cameraframes;
 
-import java.io.ByteArrayOutputStream;
+import android.app.Activity;
+import android.content.ContextWrapper;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.ImageFormat;
+import android.graphics.Paint;
+import android.graphics.Rect;
+import android.graphics.RectF;
+import android.graphics.YuvImage;
+import android.hardware.Camera;
+import android.hardware.Camera.ErrorCallback;
+import android.hardware.Camera.Size;
+import android.os.Bundle;
+import android.os.Environment;
+import android.util.Log;
+import android.util.SparseArray;
+import android.view.SurfaceHolder;
+import android.view.SurfaceHolder.Callback;
+import android.view.SurfaceView;
+import android.view.View;
+import android.widget.Button;
+import android.widget.ImageView;
+import android.widget.Toast;
+
+import com.google.android.gms.vision.Frame;
+import com.google.android.gms.vision.face.Face;
+import com.google.android.gms.vision.face.FaceDetector;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -8,38 +37,20 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.Iterator;
 import java.util.List;
-import android.app.Activity;
-import android.content.Context;
-import android.content.ContextWrapper;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
-import android.graphics.ImageFormat;
-import android.graphics.Rect;
-import android.graphics.YuvImage;
-import android.hardware.Camera;
-import android.hardware.Camera.ErrorCallback;
-import android.hardware.Camera.Parameters;
-import android.hardware.Camera.Size;
-import android.os.Bundle;
-import android.os.Environment;
-import android.util.Log;
-import android.view.SurfaceHolder;
-import android.view.SurfaceView;
-import android.view.SurfaceHolder.Callback;
-import android.view.View;
-import android.widget.Button;
-import android.widget.ImageView;
-import android.widget.Toast;
 
 import test.cameratest.R;
 
 
 public class MainActivity extends Activity  {
-    int count=0;
+
     SurfaceView mVideoCaptureView;
     Camera mCamera;
     Bitmap bitimage;
     ImageView imgview;
+    int count=1;
+    float smilingProbability = 0;
+    float leftEyeOpenProbability = 2;
+    float rightEyeOpenProbability = 2;
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -47,21 +58,23 @@ public class MainActivity extends Activity  {
         Button button=(Button)findViewById(R.id.CameraStop);
 
           imgview=(ImageView) findViewById(R.id.imageView);
-        button.setOnClickListener(new View.OnClickListener(){
+      /*  button.setOnClickListener(new View.OnClickListener(){
             @Override
             public void onClick(View v) {
              ContextWrapper cw = new ContextWrapper(getApplicationContext());
-                    File directory = cw.getDir("imageDir", Context.MODE_PRIVATE);
+                    File directory = Environment.getExternalStorageDirectory();
                     String imgPath=directory.getAbsolutePath();
-                    //loadImageFromStorage(imgPath);
+                    loadImageFromStorage(imgPath);
                 Log.e("count",count+"");
             }
-        });
+        });*/
         mVideoCaptureView = (SurfaceView) findViewById(R.id.surfaceview);
         SurfaceHolder videoCaptureViewHolder = mVideoCaptureView.getHolder();
         videoCaptureViewHolder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
         videoCaptureViewHolder.addCallback(new Callback() {
             public void surfaceDestroyed(SurfaceHolder holder) {
+                finish();
+
             }
 
             public void surfaceCreated(SurfaceHolder holder) {
@@ -75,8 +88,9 @@ public class MainActivity extends Activity  {
     }
     private void startVideo() {
         SurfaceHolder videoCaptureViewHolder = null;
+
         try {
-            mCamera = Camera.open();
+           mCamera=Camera.open();
         } catch (RuntimeException e) {
             Log.e("CameraTest", "Camera Open failed");
             return;
@@ -169,18 +183,38 @@ public class MainActivity extends Activity  {
                 Log.v("CameraTest","Time Gap = "+(System.currentTimeMillis()-timestamp));
                 timestamp=System.currentTimeMillis();
                 try {
+
                     Camera.Parameters parameters = camera.getParameters();
                     Size size = parameters.getPreviewSize();
                     YuvImage image = new YuvImage(data, parameters.getPreviewFormat(),
                             size.width, size.height, null);
                     File file = new File(Environment.getExternalStorageDirectory(), "out.jpg");
+                    count++;
                     FileOutputStream filecon = new FileOutputStream(file);
                     image.compressToJpeg(
                             new Rect(0, 0, image.getWidth(), image.getHeight()), 90,
                             filecon);
                     Bitmap b = BitmapFactory.decodeStream(new FileInputStream(file));
-                    ImageView img = (ImageView) findViewById(R.id.imageView);
+
+                   ImageView img = (ImageView) findViewById(R.id.imageView);
                     img.setImageBitmap(b);
+
+
+                   // ContextWrapper cw = new ContextWrapper(getApplicationContext());
+                    File directory = Environment.getExternalStorageDirectory();
+                    String imgPath=directory.getAbsolutePath();
+                    loadImageFromStorage(imgPath);
+
+                    if(smilingProbability<0){
+                        Toast.makeText(MainActivity.this, "smiling", Toast.LENGTH_SHORT).show();
+                    }
+                    if(leftEyeOpenProbability==1 && rightEyeOpenProbability==1 ){
+                        Toast.makeText(MainActivity.this, "eyes open", Toast.LENGTH_SHORT).show();
+                    }
+                    smilingProbability=0;
+                    leftEyeOpenProbability=2;
+                    rightEyeOpenProbability=2;
+
 
 
                 } catch (FileNotFoundException e) {
@@ -216,12 +250,12 @@ public class MainActivity extends Activity  {
                 mCamera = null;
             }
 
-   /* public void finish(){
+    public void finish(){
         stopVideo();
         super.finish();
-    };*/
+    };
 
-            private synchronized void saveToInternalStorage(Bitmap bitmapImage) throws IOException {
+           /* private synchronized void saveToInternalStorage(Bitmap bitmapImage) throws IOException {
                 ContextWrapper cw = new ContextWrapper(getApplicationContext());
                 // path to /data/data/yourapp/app_data/imageDir
                 File directory = cw.getDir("imageDir", Context.MODE_PRIVATE);
@@ -242,15 +276,138 @@ public class MainActivity extends Activity  {
                 // fos.close();
                 //}
                 //return directory.getAbsolutePath();
-            }
+            }*/
 
             private void loadImageFromStorage(String path) {
 
                 try {
-                    File f = new File(path, "profile.jpg");
-                    Bitmap b = BitmapFactory.decodeStream(new FileInputStream(f));
-                    ImageView img = (ImageView) findViewById(R.id.imageView);
-                    img.setImageBitmap(b);
+                        File f = new File(path, "out.jpg");
+                    Bitmap myBitmap = BitmapFactory.decodeStream(new FileInputStream(f));
+                    //ImageView img = (ImageView) findViewById(R.id.imageView);
+                    //img.setImageBitmap(b);
+
+                    //integration
+                    Paint myRectPaint = new Paint();
+                    myRectPaint.setStrokeWidth(5);
+                    myRectPaint.setColor(Color.RED);
+                    myRectPaint.setStyle(Paint.Style.STROKE);
+
+                    Bitmap tempBitmap = Bitmap.createBitmap(myBitmap.getWidth(), myBitmap.getHeight(), Bitmap.Config.RGB_565);
+                    Canvas tempCanvas = new Canvas(tempBitmap);
+                    tempCanvas.drawBitmap(myBitmap, 0, 0, null);
+
+                    FaceDetector faceDetector = new
+                            FaceDetector.Builder(getApplicationContext()).setTrackingEnabled(false)
+                            .build();
+     /*   if (!faceDetector.isOperational()) {
+            new AlertDialog.Builder(v.getContext()).setMessage("Could not set up the face detector!").show();
+            return;
+        }*/
+
+                    Frame frame = new Frame.Builder().setBitmap(myBitmap).build();
+                    SparseArray<Face> faces = faceDetector.detect(frame);
+
+                    for (int i = 0; i < faces.size(); i++) {
+                        Face thisFace = faces.valueAt(i);
+                        float x1 = thisFace.getPosition().x;
+                        float y1 = thisFace.getPosition().y;
+                        float x2 = x1 + thisFace.getWidth();
+                        float y2 = y1 + thisFace.getHeight();
+                        tempCanvas.drawRoundRect(new RectF(x1, y1, x2, y2), 2, 2, myRectPaint);
+                    }
+                    //  myImageView.setImageDrawable(new BitmapDrawable(getResources(), tempBitmap));
+
+
+                    // private void logFaceData() {
+
+                    float eulerY = 0;
+                    float eulerZ = 0;
+                    String smiling, lefteyeopen, righteyeopen;
+                    for (int i = 0; i < faces.size(); i++) {
+                        Face face = faces.valueAt(i);
+
+                        smilingProbability = face.getIsSmilingProbability();
+                        leftEyeOpenProbability = face.getIsLeftEyeOpenProbability();
+                        rightEyeOpenProbability = face.getIsRightEyeOpenProbability();
+                        eulerY = face.getEulerY();
+                        eulerZ = face.getEulerZ();
+                        // int so=0,sc=0,lo=0,lc=0,ro=0,rc=0;
+                      /*  int c = 0, sf = 0, ef = 0;
+                        if (smilingProbability > 0 && sf == 0) {
+                            c++;
+                            sf = 1;
+                        }
+                        if (leftEyeOpenProbability < 0 && rightEyeOpenProbability < 0 && ef == 0) {
+                            c++;
+                            ef = 1;
+                        }
+                        int failed=0;
+                        failed++;
+                        if (c == 2) {
+                            Toast.makeText(MainActivity.this, "success", Toast.LENGTH_LONG).show();
+                            break;
+                        }
+
+                        else{
+                            Log.i("failed",failed+"");
+                        }*/
+                        if(smilingProbability<0){
+                            Toast.makeText(MainActivity.this, "smiling", Toast.LENGTH_SHORT).show();
+                        }
+                        if(leftEyeOpenProbability==1 && rightEyeOpenProbability==1 ){
+                            Toast.makeText(MainActivity.this, "eyes open", Toast.LENGTH_SHORT).show();
+                        }
+
+
+
+                   /* if(smilingProbability<0){
+                        smiling="No";
+                    }
+                    else{
+                        smiling="Yes";
+                    }
+                    if(leftEyeOpenProbability<0){
+                        lefteyeopen="No";
+                    }
+                    else{
+                        lefteyeopen="Yes";
+                    }
+                    if(rightEyeOpenProbability<0){
+                        righteyeopen="No";
+                    }
+                    else{
+                        righteyeopen="Yes";
+                    }
+                    AlertDialog.Builder myAlert= new AlertDialog.Builder(context);
+                    myAlert.setTitle("ImageDetails");
+                    myAlert.setMessage("Smiling " + smiling + "\nlefteye " + lefteyeopen+"\nRighteye "+righteyeopen+"\nEulerY,Z "+Float.toString(eulerY)+" , "+Float.toString(eulerZ));
+                    AlertDialog alertDialog = myAlert.create();
+
+                    // show it
+                    alertDialog.show();*/
+
+
+
+                       /* try {
+                            textView.setText("smiling"+Float.toString(smilingProbability)+
+                                                "lefteye"+Float.toString(leftEyeOpenProbability)+
+                                                    "righteye"+Float.toString(rightEyeOpenProbability)+
+                                                    "euler y,z"+Float.toString(eulerY)+" , "+Float.toString(eulerZ));
+                        }
+                        catch (Exception e){
+                            Log.e("error",e+"");
+                        }*/
+                        Log.e("Tuts+ Face Detection", "Smiling: " + smilingProbability);
+                        Log.e("Tuts+ Face Detection", "Left eye open: " + leftEyeOpenProbability);
+                        Log.e("Tuts+ Face Detection", "Right eye open: " + rightEyeOpenProbability);
+                        Log.e("Tuts+ Face Detection", "Euler Y: " + eulerY);
+                        Log.e("Tuts+ Face Detection", "Euler Z: " + eulerZ);
+
+
+                    }
+
+
+
                 } catch (FileNotFoundException e) {
                     e.printStackTrace();
                 }
